@@ -57,13 +57,27 @@ echo ""
 echo ""
 
 # Validar credenciais
-echo -e "${YELLOW}  🔄 Validando credenciais...${NC}"
-if ! git ls-remote "https://${GIT_USER}:${GIT_PASS}@git.evoai.app/Evolution/evolution-go.git" > /dev/null 2>&1; then
-  echo -e "${RED}❌ Credenciais inválidas! Verifique seu usuário e senha do git.evoai.app${NC}"
-  exit 1
-fi
-echo -e "${GREEN}✅ Credenciais validadas com sucesso!${NC}"
-echo ""
+TENTATIVAS=0
+while [ $TENTATIVAS -lt 3 ]; do
+  echo -e "${YELLOW}  🔄 Validando credenciais...${NC}"
+  if git ls-remote "https://${GIT_USER}:${GIT_PASS}@git.evoai.app/Evolution/evolution-go.git" > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Credenciais validadas com sucesso!${NC}"
+    echo ""
+    break
+  fi
+  TENTATIVAS=$((TENTATIVAS + 1))
+  if [ $TENTATIVAS -lt 3 ]; then
+    echo -e "${RED}❌ Credenciais inválidas! Tentativa $TENTATIVAS de 3.${NC}"
+    echo ""
+    read -p "   👤 Usuário do git.evoai.app: " GIT_USER
+    read -sp "   🔑 Senha do git.evoai.app: " GIT_PASS
+    echo ""
+    echo ""
+  else
+    echo -e "${RED}❌ Número máximo de tentativas atingido. Verifique suas credenciais em https://git.evoai.app${NC}"
+    exit 1
+  fi
+done
 
 # Domínios e e-mail
 read -p "   🌐 Domínio da API (ex: api.seudominio.com): " DOMAIN_API
