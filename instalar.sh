@@ -56,6 +56,15 @@ read -sp "   🔑 Senha do git.evoai.app: " GIT_PASS
 echo ""
 echo ""
 
+# Validar credenciais
+echo -e "${YELLOW}  🔄 Validando credenciais...${NC}"
+if ! git ls-remote "https://${GIT_USER}:${GIT_PASS}@git.evoai.app/Evolution/evolution-go.git" > /dev/null 2>&1; then
+  echo -e "${RED}❌ Credenciais inválidas! Verifique seu usuário e senha do git.evoai.app${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ Credenciais validadas com sucesso!${NC}"
+echo ""
+
 # Domínios e e-mail
 read -p "   🌐 Domínio da API (ex: api.seudominio.com): " DOMAIN_API
 read -p "   🖥️  Domínio do Manager (ex: manager.seudominio.com): " DOMAIN_MANAGER
