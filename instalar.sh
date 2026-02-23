@@ -47,14 +47,24 @@ fi
 echo -e "${BLUE}📋 Antes de começar, vou precisar de algumas informações:${NC}"
 echo ""
 
-# Escapar caracteres especiais da senha
-GIT_PASS_ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${GIT_PASS}'))")
+# Credenciais do repositório
+echo -e "${YELLOW}  ⚠️  Este instalador requer acesso ao repositório oficial do Evolution GO.${NC}"
+echo -e "${YELLOW}      Acesse https://git.evoai.app para criar sua conta.${NC}"
+echo ""
+read -p "   👤 Usuário do git.evoai.app: " GIT_USER
+read -sp "   🔑 Senha do git.evoai.app: " GIT_PASS
+echo ""
+echo ""
+
+# Configurar credenciais no git
+git config --global credential.helper store
+echo "https://${GIT_USER}:${GIT_PASS}@git.evoai.app" > ~/.git-credentials
 
 # Validar credenciais
 TENTATIVAS=0
 while true; do
   echo -e "${YELLOW}  🔄 Validando credenciais...${NC}"
-  if git ls-remote "https://${GIT_USER}:${GIT_PASS_ENCODED}@git.evoai.app/Evolution/evolution-go.git" > /dev/null 2>&1; then
+  if git ls-remote "https://git.evoai.app/Evolution/evolution-go.git" > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Credenciais validadas com sucesso!${NC}"
     echo ""
     break
@@ -63,6 +73,7 @@ while true; do
   if [ $TENTATIVAS -ge 3 ]; then
     echo -e "${RED}❌ Número máximo de tentativas atingido.${NC}"
     echo -e "${RED}   Verifique suas credenciais em https://git.evoai.app${NC}"
+    rm -f ~/.git-credentials
     exit 1
   fi
   echo -e "${RED}❌ Credenciais inválidas! Tentativa $TENTATIVAS de 3. Tente novamente.${NC}"
@@ -71,7 +82,7 @@ while true; do
   read -sp "   🔑 Senha do git.evoai.app: " GIT_PASS
   echo ""
   echo ""
-  GIT_PASS_ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${GIT_PASS}'))")
+  echo "https://${GIT_USER}:${GIT_PASS}@git.evoai.app" > ~/.git-credentials
 done
 
 # Domínios e e-mail
@@ -116,7 +127,7 @@ apt install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
 # ── ETAPA 3: Clonar repositório oficial ──
 echo -e "${YELLOW}[3/8] Clonando repositório oficial do Evolution GO...${NC}"
 rm -rf /opt/evolution-go-src
-if ! git clone "https://${GIT_USER}:${GIT_PASS_ENCODED}@git.evoai.app/Evolution/evolution-go.git" /opt/evolution-go-src; then
+if ! git clone "https://git.evoai.app/Evolution/evolution-go.git" /opt/evolution-go-src; then
   echo -e "${RED}❌ Falha ao clonar o repositório. Verifique suas credenciais.${NC}"
   exit 1
 fi
