@@ -241,6 +241,18 @@ docker run -d \
   -v portainer_data:/data \
   portainer/portainer-ce:latest > /dev/null 2>&1
 
+# Configurar usuário admin do Portainer automaticamente
+echo -e "${YELLOW}      Configurando Portainer...${NC}"
+PORTAINER_PASSWORD=$(openssl rand -base64 12)
+sleep 15
+until curl -s http://localhost:9000/api/status > /dev/null 2>&1; do
+  sleep 2
+done
+curl -s -X POST http://localhost:9000/api/users/admin/init \
+  -H "Content-Type: application/json" \
+  -d "{\"Username\":\"admin\",\"Password\":\"${PORTAINER_PASSWORD}\"}" > /dev/null
+echo -e "${GREEN}✅ Portainer configurado automaticamente!${NC}"
+
 # ── ETAPA 7: Configurar Nginx ──
 echo -e "${YELLOW}[7/8] Configurando Nginx...${NC}"
 cat > /etc/nginx/sites-available/evolution <<EOF
