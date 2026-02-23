@@ -324,7 +324,10 @@ echo -e "  📋 Para acessar o Manager:"
 echo -e "     URL da API: ${CYAN}https://$DOMAIN_API${NC}"
 echo -e "     API Key:    ${GREEN}$API_KEY${NC}"
 echo ""
-echo -e "  ⚠️  No primeiro acesso ao Portainer, crie seu usuário administrador."
+echo -e "  🔑 Portainer — Acesse com as credenciais abaixo:"
+echo -e "     Usuário: ${GREEN}admin${NC}"
+echo -e "     Senha:   ${GREEN}$PORTAINER_PASSWORD${NC}"
+echo -e "  ⚠️ O usuário admin foi criado automaticamente. Troque a senha após o primeiro acesso."
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
 echo ""
 
@@ -342,8 +345,13 @@ Para o Manager:
   URL da API: https://$DOMAIN_API
   API Key: $API_KEY
 
+Portainer Login:
+  Usuario: admin
+  Senha: $PORTAINER_PASSWORD
+
 Gerado em: $(date)
 EOF
 
 echo -e "  💾 Credenciais salvas em: ${CYAN}/opt/evolution/credenciais.txt${NC}"
+echo -e "  ☕ Se sentir vontade no coração, envia um cafézin no pix@d2mdigital.com.br"
 echo ""
