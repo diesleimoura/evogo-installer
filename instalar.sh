@@ -226,6 +226,28 @@ if [ -d "$MANAGER_DIR" ]; then
   mkdir -p /var/www/evolution-manager
   cp -r "$MANAGER_DIR"/. /var/www/evolution-manager/
   echo -e "${GREEN}✅ Manager copiado com sucesso!${NC}"
+  
+  # Pré-configurar URL da API no localStorage via script de inicialização
+  cat > /var/www/evolution-manager/init-config.js <<JSEOF
+(function() {
+  var stored = localStorage.getItem('evolution-auth');
+  if (!stored) {
+    localStorage.setItem('evolution-auth', JSON.stringify({
+      state: {
+        apiUrl: 'https://${DOMAIN_API}',
+        apiKey: '',
+        isAuthenticated: false
+      },
+      version: 0
+    }));
+  }
+})();
+JSEOF
+
+  # Injetar script no index.html
+  sed -i 's|<head>|<head><script src="/init-config.js"></script>|' /var/www/evolution-manager/index.html
+  echo -e "${GREEN}✅ URL da API pré-configurada no Manager!${NC}"
+
 else
   echo -e "${RED}❌ Pasta manager/dist não encontrada no repositório.${NC}"
   exit 1
@@ -252,6 +274,17 @@ curl -s -X POST http://localhost:9000/api/users/admin/init \
   -H "Content-Type: application/json" \
   -d "{\"Username\":\"admin\",\"Password\":\"${PORTAINER_PASSWORD}\"}" > /dev/null
 echo -e "${GREEN}✅ Portainer configurado automaticamente!${NC}"
+
+# Conectar ambiente local no Portainer automaticamente
+sleep 3
+PORTAINER_TOKEN=$(curl -s -X POST http://localhost:9000/api/auth \
+  -H "Content-Type: application/json" \
+  -d "{\"Username\":\"admin\",\"Password\":\"${PORTAINER_PASSWORD}\"}" | grep -o '"jwt":"[^"]*"' | cut -d'"' -f4)
+curl -s -X POST http://localhost:9000/api/endpoints \
+  -H "Authorization: Bearer ${PORTAINER_TOKEN}" \
+  -F "Name=local" \
+  -F "EndpointCreationType=1" > /dev/null
+echo -e "${GREEN}✅ Ambiente local conectado no Portainer!${NC}"
 
 # ── ETAPA 7: Configurar Nginx ──
 echo -e "${YELLOW}[7/8] Configurando Nginx...${NC}"
