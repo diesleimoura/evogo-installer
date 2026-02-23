@@ -29,7 +29,6 @@ echo "  ╚═════╝ ╚══════╝╚═╝     ╚═╝   
 echo -e "${NC}"
 echo -e "${GREEN}  Instalador Automático — Evolution Go API + Manager + Portainer${NC}"
 echo -e "${CYAN}  Desenvolvido por Dieslei Moura | D2M Digital — d2m.digital${NC}"
-```
 
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
 echo ""
