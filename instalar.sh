@@ -4,7 +4,7 @@
 #   Evolution GO - Instalador Automático
 #   Instala: Evolution Go API + Manager + Portainer
 #   Sistema: Ubuntu 22.04 / 24.04
-#   Criado por: Dieslei / D2M Digital
+#   Criado por: Dieslei Moura / D2M Digital
 # ============================================================
 
 set -e
@@ -29,7 +29,6 @@ echo "  ╚═════╝ ╚══════╝╚═╝     ╚═╝   
 echo -e "${NC}"
 echo -e "${GREEN}  Instalador Automático — Evolution Go API + Manager + Portainer${NC}"
 echo -e "${CYAN}  Desenvolvido por Dieslei Moura | D2M Digital — d2m.digital${NC}"
-
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
 echo ""
 
@@ -48,7 +47,16 @@ fi
 echo -e "${BLUE}📋 Antes de começar, vou precisar de algumas informações:${NC}"
 echo ""
 
-# Coletar informações
+# Credenciais do repositório
+echo -e "${YELLOW}  ⚠️  Este instalador requer acesso ao repositório oficial do Evolution GO.${NC}"
+echo -e "${YELLOW}      Acesse https://git.evoai.app para criar sua conta.${NC}"
+echo ""
+read -p "   👤 Usuário do git.evoai.app: " GIT_USER
+read -sp "   🔑 Senha do git.evoai.app: " GIT_PASS
+echo ""
+echo ""
+
+# Domínios e e-mail
 read -p "   🌐 Domínio da API (ex: api.seudominio.com): " DOMAIN_API
 read -p "   🖥️  Domínio do Manager (ex: manager.seudominio.com): " DOMAIN_MANAGER
 read -p "   🐳 Domínio do Portainer (ex: portainer.seudominio.com): " DOMAIN_PORTAINER
@@ -74,12 +82,12 @@ echo -e "${BLUE}🚀 Iniciando instalação...${NC}"
 echo ""
 
 # ── ETAPA 1: Atualizar sistema ──
-echo -e "${YELLOW}[1/7] Atualizando sistema...${NC}"
+echo -e "${YELLOW}[1/8] Atualizando sistema...${NC}"
 apt update -qq && apt upgrade -y -qq
-apt install -y -qq curl ca-certificates gnupg nginx certbot python3-certbot-nginx
+apt install -y -qq curl ca-certificates gnupg nginx certbot python3-certbot-nginx git
 
 # ── ETAPA 2: Instalar Docker ──
-echo -e "${YELLOW}[2/7] Instalando Docker...${NC}"
+echo -e "${YELLOW}[2/8] Instalando Docker...${NC}"
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
 chmod a+r /etc/apt/keyrings/docker.gpg
@@ -87,15 +95,23 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 apt update -qq
 apt install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# ── ETAPA 3: Gerar chave de API ──
-echo -e "${YELLOW}[3/7] Gerando chave de API segura...${NC}"
+# ── ETAPA 3: Clonar repositório oficial ──
+echo -e "${YELLOW}[3/8] Clonando repositório oficial do Evolution GO...${NC}"
+rm -rf /opt/evolution-go-src
+if ! git clone "https://${GIT_USER}:${GIT_PASS}@git.evoai.app/Evolution/evolution-go.git" /opt/evolution-go-src; then
+  echo -e "${RED}❌ Falha ao clonar o repositório. Verifique suas credenciais.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ Repositório clonado com sucesso!${NC}"
+
+# ── ETAPA 4: Gerar chave de API ──
+echo -e "${YELLOW}[4/8] Gerando chave de API segura...${NC}"
 API_KEY=$(openssl rand -hex 32)
 
-# ── ETAPA 4: Criar arquivos do projeto ──
-echo -e "${YELLOW}[4/7] Criando arquivos de configuração...${NC}"
+# ── ETAPA 5: Criar arquivos do projeto ──
+echo -e "${YELLOW}[5/8] Criando arquivos de configuração...${NC}"
 mkdir -p /opt/evolution
 
-# docker-compose.yml
 cat > /opt/evolution/docker-compose.yml <<EOF
 version: '3.8'
 
@@ -140,17 +156,6 @@ services:
     depends_on:
       - postgres
 
-  evolution-manager:
-    image: evoapicloud/evolution-go-manager:latest
-    container_name: evolution-manager
-    restart: unless-stopped
-    ports:
-      - "5174:80"
-    networks:
-      - evolution_network
-    depends_on:
-      - evolution-go
-
   postgres:
     image: postgres:15-alpine
     container_name: evolution-postgres
@@ -175,16 +180,27 @@ networks:
     driver: bridge
 EOF
 
-# init-db.sql
 cat > /opt/evolution/init-db.sql <<EOF
 CREATE DATABASE evogo_auth;
 CREATE DATABASE evogo_users;
 EOF
 
-# ── ETAPA 5: Subir containers ──
-echo -e "${YELLOW}[5/7] Subindo containers (pode demorar alguns minutos)...${NC}"
+# ── ETAPA 6: Subir containers + Manager + Portainer ──
+echo -e "${YELLOW}[6/8] Subindo containers...${NC}"
 cd /opt/evolution
 docker compose up -d
+
+# Copiar Manager do repositório clonado
+echo -e "${YELLOW}      Copiando arquivos do Manager...${NC}"
+MANAGER_DIR="/opt/evolution-go-src/manager/dist"
+if [ -d "$MANAGER_DIR" ]; then
+  mkdir -p /var/www/evolution-manager
+  cp -r "$MANAGER_DIR"/. /var/www/evolution-manager/
+  echo -e "${GREEN}✅ Manager copiado com sucesso!${NC}"
+else
+  echo -e "${RED}❌ Pasta manager/dist não encontrada no repositório.${NC}"
+  exit 1
+fi
 
 # Instalar Portainer
 docker volume create portainer_data > /dev/null 2>&1
@@ -196,8 +212,8 @@ docker run -d \
   -v portainer_data:/data \
   portainer/portainer-ce:latest > /dev/null 2>&1
 
-# ── ETAPA 6: Configurar Nginx ──
-echo -e "${YELLOW}[6/7] Configurando Nginx...${NC}"
+# ── ETAPA 7: Configurar Nginx ──
+echo -e "${YELLOW}[7/8] Configurando Nginx...${NC}"
 cat > /etc/nginx/sites-available/evolution <<EOF
 server {
     listen 80;
@@ -215,9 +231,10 @@ server {
 server {
     listen 80;
     server_name ${DOMAIN_MANAGER};
+    root /var/www/evolution-manager;
+    index index.html;
     location / {
-        proxy_pass http://localhost:5174;
-        proxy_set_header Host \$host;
+        try_files \$uri \$uri/ /index.html;
     }
 }
 
@@ -237,8 +254,8 @@ EOF
 ln -sf /etc/nginx/sites-available/evolution /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 
-# ── ETAPA 7: Gerar certificados SSL ──
-echo -e "${YELLOW}[7/7] Gerando certificados HTTPS...${NC}"
+# ── ETAPA 8: Gerar certificados SSL ──
+echo -e "${YELLOW}[8/8] Gerando certificados HTTPS...${NC}"
 certbot --nginx \
   -d "$DOMAIN_API" \
   -d "$DOMAIN_MANAGER" \
@@ -270,7 +287,7 @@ echo -e "  ⚠️  No primeiro acesso ao Portainer, crie seu usuário administra
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
 echo ""
 
-# Salvar informações em arquivo
+# Salvar credenciais
 cat > /opt/evolution/credenciais.txt <<EOF
 === Evolution GO - Credenciais de Acesso ===
 
