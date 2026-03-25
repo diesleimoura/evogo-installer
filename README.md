@@ -11,7 +11,7 @@
   ╚═════╝ ╚══════╝╚═╝     ╚═╝     ╚═════╝ ╚═╝ ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
 ```
 
-**Instalador Automático do Evolution Go API + Manager + Portainer**
+**Instalador Automático do Evolution Go API + Manager + Portainer + n8n**
 
 ![Shell](https://img.shields.io/badge/Shell-100%25-brightgreen)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange)
@@ -36,15 +36,16 @@ bash <(curl -sSL setup.aoopa.com.br)
 
 Com um único comando, ele instala e configura automaticamente:
 
-| Serviço | Descrição |
-|---|---|
-| **Evolution Go API** | API WhatsApp de alta performance em Go |
-| **Evolution Go Manager** | Interface web para gerenciar instâncias (embutida na API) |
-| **Portainer** | Painel visual para gerenciar containers Docker |
-| **Nginx** | Proxy reverso para todos os serviços |
-| **Certbot** | Certificados SSL/HTTPS automáticos |
-| **Docker** | Engine de containers |
-| **PostgreSQL** | Banco de dados da API |
+| Serviço | Descrição | Opcional |
+|---|---|---|
+| **Evolution Go API** | API WhatsApp de alta performance em Go | ✅ Sempre |
+| **Evolution Go Manager** | Interface web para gerenciar instâncias (embutida na API) | ✅ Sempre |
+| **Portainer** | Painel visual para gerenciar containers Docker | ✅ Sempre |
+| **Nginx** | Proxy reverso para todos os serviços | ✅ Sempre |
+| **Certbot** | Certificados SSL/HTTPS automáticos | ✅ Sempre |
+| **Docker** | Engine de containers | ✅ Sempre |
+| **PostgreSQL** | Banco de dados da API | ✅ Sempre |
+| **n8n** | Plataforma de automação de workflows | ⚙️ Opcional |
 
 ---
 
@@ -54,10 +55,11 @@ Antes de executar o instalador, certifique-se de ter:
 
 - **VPS zerada** com Ubuntu 22.04 ou 24.04
 - **Acesso root** ao servidor
-- **3 subdomínios** criados e apontando para o IP da VPS:
+- **3 subdomínios** (ou 4 se instalar o n8n) criados e apontando para o IP da VPS:
   - `api.seudominio.com`
   - `manager.seudominio.com`
   - `portainer.seudominio.com`
+  - `n8n.seudominio.com` *(opcional)*
 - **E-mail** para geração dos certificados SSL
 
 > 💡 Recomendamos usar DNS com proxy **desativado** durante a instalação. Após concluir, você pode ativar normalmente.
@@ -79,14 +81,20 @@ bash <(curl -sSL setup.aoopa.com.br)
 📧 E-mail para SSL: seu@email.com
 ```
 
-**3.** Confirme as informações e aguarde a instalação concluir automaticamente.
+**3.** Escolha se deseja instalar o n8n:
+```
+🔧 Deseja instalar o n8n também? (s/n): s
+🔗 Domínio do n8n: n8n.seudominio.com
+```
 
-**4.** Ao finalizar, todas as credenciais serão exibidas na tela e salvas em:
+**4.** Confirme as informações e aguarde a instalação concluir automaticamente.
+
+**5.** Ao finalizar, todas as credenciais serão exibidas na tela e salvas em:
 ```
 /opt/evolution/credenciais.txt
 ```
 
-**5.** ⚠️ **Importante:** Acesse o Manager e complete a ativação da licença no primeiro acesso.
+**6.** ⚠️ **Importante:** Acesse o Manager e complete a ativação da licença no primeiro acesso.
 
 ---
 
@@ -100,6 +108,7 @@ bash <(curl -sSL setup.aoopa.com.br)
 ✅ Evolution Go API
 ✅ Evolution Go Manager (embutido na API)
 ✅ Portainer (com usuário admin configurado automaticamente)
+⚙️ n8n (se solicitado durante a instalação)
 ```
 
 ---
@@ -132,6 +141,8 @@ O Evolution Go requer ativação de licença no primeiro acesso:
 | RAM | 2 GB | 4 GB |
 | Disco | 20 GB | 40 GB |
 | SO | Ubuntu 22.04 | Ubuntu 22.04 / 24.04 |
+
+> 💡 Se for instalar o n8n também, recomendamos no mínimo **4GB de RAM**.
 
 ---
 
