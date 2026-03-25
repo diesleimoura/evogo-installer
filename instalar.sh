@@ -3,7 +3,7 @@
 # ============================================================
 #   Evolution GO - Instalador Automático
 #   Instala: Evolution Go API + Manager + Portainer + n8n (opcional)
-#   Sistema: Ubuntu 22.04 / 24.04
+#   Sistema: Ubuntu 22.04 / 24.04 | Debian 11 / 12
 #   Criado por: Dieslei Moura / D2M Digital
 # ============================================================
 
@@ -38,11 +38,16 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# Verificar Ubuntu
-if ! grep -qi ubuntu /etc/os-release; then
-  echo -e "${RED}❌ Este script é compatível apenas com Ubuntu.${NC}"
+# Verificar Ubuntu ou Debian
+if ! grep -qiE "ubuntu|debian" /etc/os-release; then
+  echo -e "${RED}❌ Este script é compatível apenas com Ubuntu 22.04/24.04 ou Debian 11/12.${NC}"
   exit 1
 fi
+
+# Detectar distribuição
+DISTRO=$(grep -i "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')
+echo -e "${GREEN}✅ Sistema detectado: ${DISTRO}${NC}"
+echo 
 
 echo -e "${BLUE}📋 Antes de começar, vou precisar de algumas informações:${NC}"
 echo ""
@@ -93,9 +98,9 @@ apt install -y -qq curl ca-certificates gnupg nginx certbot python3-certbot-ngin
 # ── ETAPA 2: Instalar Docker ──
 echo -e "${YELLOW}[2/6] Instalando Docker...${NC}"
 install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
+curl -fsSL https://download.docker.com/linux/${DISTRO}/gpg | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
 chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${DISTRO} $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt update -qq
 apt install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
