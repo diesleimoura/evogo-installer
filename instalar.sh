@@ -90,6 +90,45 @@ echo ""
 echo -e "${BLUE}🚀 Iniciando instalação...${NC}"
 echo ""
 
+# ── Verificar instalação anterior ──
+INSTALACAO_ANTERIOR=false
+if docker ps -a 2>/dev/null | grep -qE "evolution-go|evolution-postgres|portainer|n8n"; then
+  INSTALACAO_ANTERIOR=true
+fi
+if [ -d "/opt/evolution" ] || [ -f "/etc/nginx/sites-available/evolution" ]; then
+  INSTALACAO_ANTERIOR=true
+fi
+
+if [ "$INSTALACAO_ANTERIOR" = true ]; then
+  echo -e "${RED}  ⚠️  Detectamos uma instalação anterior nesta VPS!${NC}"
+  echo -e "${YELLOW}  Para continuar, os seguintes dados serão apagados:${NC}"
+  echo -e "${YELLOW}     - Containers Docker (Evolution Go, Postgres, Portainer, n8n)${NC}"
+  echo -e "${YELLOW}     - Volumes e dados armazenados${NC}"
+  echo -e "${YELLOW}     - Configurações do Nginx${NC}"
+  echo -e "${YELLOW}     - Certificados SSL${NC}"
+  echo ""
+  echo -e "${RED}  ⚠️  ATENÇÃO: Esta ação é IRREVERSÍVEL!${NC}"
+  echo ""
+  read -p "   Deseja apagar tudo e continuar com a instalação? (s/n): " LIMPAR
+  if [[ "$LIMPAR" != "s" && "$LIMPAR" != "S" ]]; then
+    echo -e "${RED}   Instalação cancelada.${NC}"
+    exit 1
+  fi
+  echo ""
+  echo -e "${YELLOW}  🧹 Limpando instalação anterior...${NC}"
+  docker stop $(docker ps -aq) 2>/dev/null || true
+  docker rm $(docker ps -aq) 2>/dev/null || true
+  docker volume rm $(docker volume ls -q) 2>/dev/null || true
+  rm -rf /opt/evolution /opt/n8n /var/www/evolution-manager
+  rm -f /etc/nginx/sites-available/evolution /etc/nginx/sites-enabled/evolution
+  for cert in $(certbot certificates 2>/dev/null | grep "Certificate Name" | awk '{print $3}'); do
+    certbot delete --cert-name "$cert" --non-interactive 2>/dev/null || true
+  done
+  systemctl reload nginx 2>/dev/null || true
+  echo -e "${GREEN}  ✅ Limpeza concluída! Iniciando instalação...${NC}"
+  echo ""
+fi
+
 # ── ETAPA 1: Atualizar sistema ──
 echo -e "${YELLOW}[1/6] Atualizando sistema...${NC}"
 apt update -qq && apt upgrade -y -qq
