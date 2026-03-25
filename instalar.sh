@@ -116,14 +116,28 @@ if [ "$INSTALACAO_ANTERIOR" = true ]; then
   fi
   echo ""
   echo -e "${YELLOW}  🧹 Limpando instalação anterior...${NC}"
+
+  # Parar e remover todos os containers e volumes Docker
   docker stop $(docker ps -aq) 2>/dev/null || true
   docker rm $(docker ps -aq) 2>/dev/null || true
   docker volume rm $(docker volume ls -q) 2>/dev/null || true
+  docker network prune -f 2>/dev/null || true
+
+  # Remover arquivos de instalação
   rm -rf /opt/evolution /opt/n8n /var/www/evolution-manager
-  rm -f /etc/nginx/sites-available/evolution /etc/nginx/sites-enabled/evolution
+
+  # Remover TODAS as configurações do Nginx
+  rm -f /etc/nginx/sites-enabled/*
+  rm -f /etc/nginx/sites-available/*
+
+  # Recriar o default do Nginx para não quebrar
+  ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default 2>/dev/null || true
+
+  # Remover TODOS os certificados SSL
   for cert in $(certbot certificates 2>/dev/null | grep "Certificate Name" | awk '{print $3}'); do
     certbot delete --cert-name "$cert" --non-interactive 2>/dev/null || true
   done
+
   systemctl reload nginx 2>/dev/null || true
   echo -e "${GREEN}  ✅ Limpeza concluída! Iniciando instalação...${NC}"
   echo ""
@@ -149,8 +163,6 @@ API_KEY=$(openssl rand -hex 32)
 mkdir -p /opt/evolution
 
 cat > /opt/evolution/docker-compose.yml <<EOF
-version: '3.8'
-
 services:
   evolution-go:
     image: evoapicloud/evolution-go:latest
@@ -261,8 +273,6 @@ if [ "$INSTALL_N8N" = true ]; then
   N8N_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
   cat > /opt/n8n/docker-compose.yml <<EOF
-version: '3.8'
-
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
