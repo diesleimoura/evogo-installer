@@ -2,7 +2,7 @@
 
 # ============================================================
 #   Evolution GO - Instalador Automático
-#   Instala: Evolution Go API + Manager + Portainer
+#   Instala: Evolution Go API + Manager + Portainer + n8n (opcional)
 #   Sistema: Ubuntu 22.04 / 24.04
 #   Criado por: Dieslei Moura / D2M Digital
 # ============================================================
@@ -54,11 +54,24 @@ read -p "   🐳 Domínio do Portainer (ex: portainer.seudominio.com): " DOMAIN_
 read -p "   📧 Seu e-mail (para certificado SSL): " EMAIL
 echo ""
 
+# Pergunta sobre n8n
+read -p "   🔧 Deseja instalar o n8n também? (s/n): " INSTALL_N8N
+if [[ "$INSTALL_N8N" == "s" || "$INSTALL_N8N" == "S" ]]; then
+  read -p "   🔗 Domínio do n8n (ex: n8n.seudominio.com): " DOMAIN_N8N
+  INSTALL_N8N=true
+else
+  INSTALL_N8N=false
+fi
+echo ""
+
 # Confirmação
 echo -e "${YELLOW}   -----------------------------------------------------------------------${NC}"
 echo -e "   API:       ${GREEN}https://$DOMAIN_API${NC}"
 echo -e "   Manager:   ${GREEN}https://$DOMAIN_MANAGER${NC}"
 echo -e "   Portainer: ${GREEN}https://$DOMAIN_PORTAINER${NC}"
+if [ "$INSTALL_N8N" = true ]; then
+  echo -e "   n8n:       ${GREEN}https://$DOMAIN_N8N${NC}"
+fi
 echo -e "   E-mail:    ${GREEN}$EMAIL${NC}"
 echo -e "${YELLOW}   -----------------------------------------------------------------------${NC}"
 echo ""
@@ -197,8 +210,46 @@ curl -s -X POST http://localhost:9000/api/endpoints \
   -F "EndpointCreationType=1" > /dev/null
 echo -e "${GREEN}✅ Ambiente local conectado no Portainer!${NC}"
 
+# Instalar n8n (opcional)
+if [ "$INSTALL_N8N" = true ]; then
+  echo -e "${YELLOW}      Instalando n8n...${NC}"
+  mkdir -p /opt/n8n
+  N8N_ENCRYPTION_KEY=$(openssl rand -hex 32)
+
+  cat > /opt/n8n/docker-compose.yml <<EOF
+version: '3.8'
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      GENERIC_TIMEZONE: "America/Sao_Paulo"
+      TZ: "America/Sao_Paulo"
+      N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}"
+      WEBHOOK_URL: "https://${DOMAIN_N8N}"
+      N8N_HOST: "${DOMAIN_N8N}"
+      N8N_PROTOCOL: "https"
+      N8N_SECURE_COOKIE: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+EOF
+
+  cd /opt/n8n
+  docker compose up -d
+  echo -e "${GREEN}✅ n8n instalado com sucesso!${NC}"
+fi
+
 # ── ETAPA 5: Configurar Nginx ──
 echo -e "${YELLOW}[5/6] Configurando Nginx...${NC}"
+
 cat > /etc/nginx/sites-available/evolution <<EOF
 server {
     listen 80;
@@ -239,15 +290,38 @@ server {
 }
 EOF
 
+# Adicionar bloco do n8n no Nginx se solicitado
+if [ "$INSTALL_N8N" = true ]; then
+  cat >> /etc/nginx/sites-available/evolution <<EOF
+
+server {
+    listen 80;
+    server_name ${DOMAIN_N8N};
+    location / {
+        proxy_pass http://localhost:5678;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+EOF
+fi
+
 ln -sf /etc/nginx/sites-available/evolution /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 
 # ── ETAPA 6: Gerar certificados SSL ──
 echo -e "${YELLOW}[6/6] Gerando certificados HTTPS...${NC}"
+
+CERTBOT_DOMAINS="-d $DOMAIN_API -d $DOMAIN_MANAGER -d $DOMAIN_PORTAINER"
+if [ "$INSTALL_N8N" = true ]; then
+  CERTBOT_DOMAINS="$CERTBOT_DOMAINS -d $DOMAIN_N8N"
+fi
+
 certbot --nginx \
-  -d "$DOMAIN_API" \
-  -d "$DOMAIN_MANAGER" \
-  -d "$DOMAIN_PORTAINER" \
+  $CERTBOT_DOMAINS \
   --non-interactive \
   --agree-tos \
   --email "$EMAIL" \
@@ -262,6 +336,9 @@ echo -e "${YELLOW}  ------------------------------------------------------------
 echo -e "  🌐 API:          ${CYAN}https://$DOMAIN_API${NC}"
 echo -e "  🖥️  Manager:      ${CYAN}https://$DOMAIN_MANAGER${NC}"
 echo -e "  🐳 Portainer:    ${CYAN}https://$DOMAIN_PORTAINER${NC}"
+if [ "$INSTALL_N8N" = true ]; then
+  echo -e "  🔧 n8n:          ${CYAN}https://$DOMAIN_N8N${NC}"
+fi
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
 echo ""
 echo -e "  🔑 Sua API Key (guarde em local seguro!):"
@@ -291,6 +368,15 @@ cat > /opt/evolution/credenciais.txt <<EOF
 API:          https://$DOMAIN_API
 Manager:      https://$DOMAIN_MANAGER
 Portainer:    https://$DOMAIN_PORTAINER
+EOF
+
+if [ "$INSTALL_N8N" = true ]; then
+  cat >> /opt/evolution/credenciais.txt <<EOF
+n8n:          https://$DOMAIN_N8N
+EOF
+fi
+
+cat >> /opt/evolution/credenciais.txt <<EOF
 
 API Key: $API_KEY
 
