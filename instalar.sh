@@ -130,8 +130,8 @@ if [ "$INSTALACAO_ANTERIOR" = true ]; then
   rm -f /etc/nginx/sites-enabled/*
   rm -f /etc/nginx/sites-available/*
 
-  # Recriar o default do Nginx para não quebrar
-  ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default 2>/dev/null || true
+  # Garantir que sites-enabled está completamente vazio
+  rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 
   # Remover TODOS os certificados SSL
   for cert in $(certbot certificates 2>/dev/null | grep "Certificate Name" | awk '{print $3}'); do
