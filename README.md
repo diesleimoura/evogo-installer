@@ -39,7 +39,7 @@ Com um único comando, ele instala e configura automaticamente:
 | Serviço | Descrição |
 |---|---|
 | **Evolution Go API** | API WhatsApp de alta performance em Go |
-| **Evolution Go Manager** | Interface web para gerenciar instâncias |
+| **Evolution Go Manager** | Interface web para gerenciar instâncias (embutida na API) |
 | **Portainer** | Painel visual para gerenciar containers Docker |
 | **Nginx** | Proxy reverso para todos os serviços |
 | **Certbot** | Certificados SSL/HTTPS automáticos |
@@ -58,7 +58,6 @@ Antes de executar o instalador, certifique-se de ter:
   - `api.seudominio.com`
   - `manager.seudominio.com`
   - `portainer.seudominio.com`
-- **Conta ativa** no repositório oficial: [git.evoai.app](https://git.evoai.app)
 - **E-mail** para geração dos certificados SSL
 
 > 💡 Recomendamos usar DNS com proxy **desativado** durante a instalação. Após concluir, você pode ativar normalmente.
@@ -72,13 +71,7 @@ Antes de executar o instalador, certifique-se de ter:
 bash <(curl -sSL setup.aoopa.com.br)
 ```
 
-**2.** Informe suas credenciais do **git.evoai.app** (usuário e senha):
-```
-👤 Usuário do git.evoai.app: seu@email.com
-🔑 Senha do git.evoai.app: ********
-```
-
-**3.** Informe os domínios e e-mail:
+**2.** Informe os domínios e e-mail:
 ```
 🌐 Domínio da API: api.seudominio.com
 🖥️  Domínio do Manager: manager.seudominio.com
@@ -86,12 +79,14 @@ bash <(curl -sSL setup.aoopa.com.br)
 📧 E-mail para SSL: seu@email.com
 ```
 
-**4.** Confirme as informações e aguarde a instalação concluir automaticamente.
+**3.** Confirme as informações e aguarde a instalação concluir automaticamente.
 
-**5.** Ao finalizar, todas as credenciais serão exibidas na tela e salvas em:
+**4.** Ao finalizar, todas as credenciais serão exibidas na tela e salvas em:
 ```
 /opt/evolution/credenciais.txt
 ```
+
+**5.** ⚠️ **Importante:** Acesse o Manager e complete a ativação da licença no primeiro acesso.
 
 ---
 
@@ -103,9 +98,20 @@ bash <(curl -sSL setup.aoopa.com.br)
 ✅ Certbot (SSL/HTTPS)
 ✅ PostgreSQL
 ✅ Evolution Go API
-✅ Evolution Go Manager
-✅ Portainer (com usuário admin configurado)
+✅ Evolution Go Manager (embutido na API)
+✅ Portainer (com usuário admin configurado automaticamente)
 ```
+
+---
+
+## ⚠️ Ativação de Licença
+
+O Evolution Go requer ativação de licença no primeiro acesso:
+
+1. Acesse o Manager: `https://manager.seudominio.com`
+2. Informe a URL da API e a API Key gerada
+3. Complete o processo de ativação da licença
+4. Após ativado, a API estará totalmente operacional
 
 ---
 
