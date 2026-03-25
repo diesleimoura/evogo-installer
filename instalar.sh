@@ -47,44 +47,6 @@ fi
 echo -e "${BLUE}📋 Antes de começar, vou precisar de algumas informações:${NC}"
 echo ""
 
-# Credenciais do repositório
-echo -e "${YELLOW}  ⚠️  Este instalador requer acesso ao repositório oficial do Evolution GO.${NC}"
-echo -e "${YELLOW}      Acesse https://git.evoai.app para criar sua conta.${NC}"
-echo ""
-read -p "   👤 Usuário do git.evoai.app: " GIT_USER
-read -sp "   🔑 Senha do git.evoai.app: " GIT_PASS
-echo ""
-echo ""
-
-# Configurar credenciais no git
-git config --global credential.helper store
-echo "https://${GIT_USER}:${GIT_PASS}@git.evoai.app" > ~/.git-credentials
-
-# Validar credenciais
-TENTATIVAS=0
-while true; do
-  echo -e "${YELLOW}  🔄 Validando credenciais...${NC}"
-  if git ls-remote "https://git.evoai.app/Evolution/evolution-go.git" > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Credenciais validadas com sucesso!${NC}"
-    echo ""
-    break
-  fi
-  TENTATIVAS=$((TENTATIVAS + 1))
-  if [ $TENTATIVAS -ge 3 ]; then
-    echo -e "${RED}❌ Número máximo de tentativas atingido.${NC}"
-    echo -e "${RED}   Verifique suas credenciais em https://git.evoai.app${NC}"
-    rm -f ~/.git-credentials
-    exit 1
-  fi
-  echo -e "${RED}❌ Credenciais inválidas! Tentativa $TENTATIVAS de 3. Tente novamente.${NC}"
-  echo ""
-  read -p "   👤 Usuário do git.evoai.app: " GIT_USER
-  read -sp "   🔑 Senha do git.evoai.app: " GIT_PASS
-  echo ""
-  echo ""
-  echo "https://${GIT_USER}:${GIT_PASS}@git.evoai.app" > ~/.git-credentials
-done
-
 # Domínios e e-mail
 read -p "   🌐 Domínio da API (ex: api.seudominio.com): " DOMAIN_API
 read -p "   🖥️  Domínio do Manager (ex: manager.seudominio.com): " DOMAIN_MANAGER
@@ -111,12 +73,12 @@ echo -e "${BLUE}🚀 Iniciando instalação...${NC}"
 echo ""
 
 # ── ETAPA 1: Atualizar sistema ──
-echo -e "${YELLOW}[1/8] Atualizando sistema...${NC}"
+echo -e "${YELLOW}[1/6] Atualizando sistema...${NC}"
 apt update -qq && apt upgrade -y -qq
 apt install -y -qq curl ca-certificates gnupg nginx certbot python3-certbot-nginx git
 
 # ── ETAPA 2: Instalar Docker ──
-echo -e "${YELLOW}[2/8] Instalando Docker...${NC}"
+echo -e "${YELLOW}[2/6] Instalando Docker...${NC}"
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
 chmod a+r /etc/apt/keyrings/docker.gpg
@@ -124,21 +86,9 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 apt update -qq
 apt install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# ── ETAPA 3: Clonar repositório oficial ──
-echo -e "${YELLOW}[3/8] Clonando repositório oficial do Evolution GO...${NC}"
-rm -rf /opt/evolution-go-src
-if ! git clone "https://git.evoai.app/Evolution/evolution-go.git" /opt/evolution-go-src; then
-  echo -e "${RED}❌ Falha ao clonar o repositório. Verifique suas credenciais.${NC}"
-  exit 1
-fi
-echo -e "${GREEN}✅ Repositório clonado com sucesso!${NC}"
-
-# ── ETAPA 4: Gerar chave de API ──
-echo -e "${YELLOW}[4/8] Gerando chave de API segura...${NC}"
+# ── ETAPA 3: Gerar chave de API e criar arquivos ──
+echo -e "${YELLOW}[3/6] Gerando chave de API e criando arquivos de configuração...${NC}"
 API_KEY=$(openssl rand -hex 32)
-
-# ── ETAPA 5: Criar arquivos do projeto ──
-echo -e "${YELLOW}[5/8] Criando arquivos de configuração...${NC}"
 mkdir -p /opt/evolution
 
 cat > /opt/evolution/docker-compose.yml <<EOF
@@ -150,9 +100,9 @@ services:
     container_name: evolution-go
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "8080:8080"
     environment:
-      SERVER_PORT: 4000
+      SERVER_PORT: 8080
       CLIENT_NAME: "evolution"
       GLOBAL_API_KEY: "${API_KEY}"
       POSTGRES_AUTH_DB: "postgresql://postgres:postgres@postgres:5432/evogo_auth?sslmode=disable"
@@ -160,12 +110,7 @@ services:
       DATABASE_SAVE_MESSAGES: "false"
       WADEBUG: "INFO"
       LOGTYPE: "console"
-      LOG_DIRECTORY: "/app/logs"
-      LOG_MAX_SIZE: "100"
-      LOG_MAX_BACKUPS: "5"
-      LOG_MAX_AGE: "30"
-      LOG_COMPRESS: "true"
-      CONNECT_ON_STARTUP: "false"
+      CONNECT_ON_STARTUP: "true"
       WEBHOOKFILES: "true"
       OS_NAME: "Linux"
       WEBHOOK_URL: ""
@@ -214,44 +159,10 @@ CREATE DATABASE evogo_auth;
 CREATE DATABASE evogo_users;
 EOF
 
-# ── ETAPA 6: Subir containers + Manager + Portainer ──
-echo -e "${YELLOW}[6/8] Subindo containers...${NC}"
+# ── ETAPA 4: Subir containers + Portainer ──
+echo -e "${YELLOW}[4/6] Subindo containers...${NC}"
 cd /opt/evolution
 docker compose up -d
-
-# Copiar Manager do repositório clonado
-echo -e "${YELLOW}      Copiando arquivos do Manager...${NC}"
-MANAGER_DIR="/opt/evolution-go-src/manager/dist"
-if [ -d "$MANAGER_DIR" ]; then
-  mkdir -p /var/www/evolution-manager
-  cp -r "$MANAGER_DIR"/. /var/www/evolution-manager/
-  echo -e "${GREEN}✅ Manager copiado com sucesso!${NC}"
-  
-  # Pré-configurar URL da API no localStorage via script de inicialização
-  cat > /var/www/evolution-manager/init-config.js <<JSEOF
-(function() {
-  var stored = localStorage.getItem('evolution-auth');
-  if (!stored) {
-    localStorage.setItem('evolution-auth', JSON.stringify({
-      state: {
-        apiUrl: 'https://${DOMAIN_API}',
-        apiKey: '',
-        isAuthenticated: false
-      },
-      version: 0
-    }));
-  }
-})();
-JSEOF
-
-  # Injetar script no index.html
-  sed -i 's|<head>|<head><script src="/init-config.js"></script>|' /var/www/evolution-manager/index.html
-  echo -e "${GREEN}✅ URL da API pré-configurada no Manager!${NC}"
-
-else
-  echo -e "${RED}❌ Pasta manager/dist não encontrada no repositório.${NC}"
-  exit 1
-fi
 
 # Instalar Portainer
 docker volume create portainer_data > /dev/null 2>&1
@@ -286,14 +197,14 @@ curl -s -X POST http://localhost:9000/api/endpoints \
   -F "EndpointCreationType=1" > /dev/null
 echo -e "${GREEN}✅ Ambiente local conectado no Portainer!${NC}"
 
-# ── ETAPA 7: Configurar Nginx ──
-echo -e "${YELLOW}[7/8] Configurando Nginx...${NC}"
+# ── ETAPA 5: Configurar Nginx ──
+echo -e "${YELLOW}[5/6] Configurando Nginx...${NC}"
 cat > /etc/nginx/sites-available/evolution <<EOF
 server {
     listen 80;
     server_name ${DOMAIN_API};
     location / {
-        proxy_pass http://localhost:4000;
+        proxy_pass http://localhost:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -305,10 +216,13 @@ server {
 server {
     listen 80;
     server_name ${DOMAIN_MANAGER};
-    root /var/www/evolution-manager;
-    index index.html;
     location / {
-        try_files \$uri \$uri/ /index.html;
+        proxy_pass http://localhost:8080/manager/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
     }
 }
 
@@ -328,8 +242,8 @@ EOF
 ln -sf /etc/nginx/sites-available/evolution /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 
-# ── ETAPA 8: Gerar certificados SSL ──
-echo -e "${YELLOW}[8/8] Gerando certificados HTTPS...${NC}"
+# ── ETAPA 6: Gerar certificados SSL ──
+echo -e "${YELLOW}[6/6] Gerando certificados HTTPS...${NC}"
 certbot --nginx \
   -d "$DOMAIN_API" \
   -d "$DOMAIN_MANAGER" \
@@ -357,10 +271,16 @@ echo -e "  📋 Para acessar o Manager:"
 echo -e "     URL da API: ${CYAN}https://$DOMAIN_API${NC}"
 echo -e "     API Key:    ${GREEN}$API_KEY${NC}"
 echo ""
-echo -e "  🔑 Portainer — Acesse com as credenciais abaixo:"
+echo -e "  ⚠️  Portainer — Acesse com as credenciais abaixo:"
 echo -e "     Usuário: ${GREEN}admin${NC}"
 echo -e "     Senha:   ${GREEN}$PORTAINER_PASSWORD${NC}"
-echo -e "  ⚠️ O usuário admin foi criado automaticamente. Troque a senha após o primeiro acesso."
+echo -e "     ⚠️  O usuário admin foi criado automaticamente. Troque a senha após o primeiro acesso."
+echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
+echo ""
+echo -e "  ⚠️  IMPORTANTE: A API requer ativação de licença no primeiro acesso!"
+echo -e "     1. Acesse o Manager: ${CYAN}https://$DOMAIN_MANAGER${NC}"
+echo -e "     2. Informe a URL da API e a API Key"
+echo -e "     3. Complete o processo de ativação da licença"
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
 echo ""
 
@@ -381,6 +301,11 @@ Para o Manager:
 Portainer Login:
   Usuario: admin
   Senha: $PORTAINER_PASSWORD
+
+IMPORTANTE: A API requer ativação de licença no primeiro acesso!
+  1. Acesse o Manager: https://$DOMAIN_MANAGER
+  2. Informe a URL da API e a API Key
+  3. Complete o processo de ativação da licença
 
 Gerado em: $(date)
 EOF
