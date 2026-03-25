@@ -15,6 +15,7 @@
 
 ![Shell](https://img.shields.io/badge/Shell-100%25-brightgreen)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange)
+![Debian](https://img.shields.io/badge/Debian-11%20%7C%2012-red)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Desenvolvido por](https://img.shields.io/badge/Desenvolvido%20por-D2M%20Digital-cyan)
 
@@ -28,7 +29,7 @@
 bash <(curl -sSL setup.aoopa.com.br)
 ```
 
-> ⚠️ Execute em uma **VPS zerada** com Ubuntu 22.04 ou 24.04.
+> ⚠️ Execute em uma **VPS zerada** com Ubuntu 22.04/24.04 ou Debian 11/12.
 
 ---
 
@@ -53,7 +54,7 @@ Com um único comando, ele instala e configura automaticamente:
 
 Antes de executar o instalador, certifique-se de ter:
 
-- **VPS zerada** com Ubuntu 22.04 ou 24.04
+- **VPS zerada** com Ubuntu 22.04/24.04 ou Debian 11/12
 - **Acesso root** ao servidor
 - **3 subdomínios** (ou 4 se instalar o n8n) criados e apontando para o IP da VPS:
   - `api.seudominio.com`
@@ -140,7 +141,7 @@ O Evolution Go requer ativação de licença no primeiro acesso:
 | CPU | 2 vCPUs | 4 vCPUs |
 | RAM | 2 GB | 4 GB |
 | Disco | 20 GB | 40 GB |
-| SO | Ubuntu 22.04 | Ubuntu 22.04 / 24.04 |
+| SO | Ubuntu 22.04 / Debian 11 | Ubuntu 22.04/24.04 / Debian 11/12 |
 
 > 💡 Se for instalar o n8n também, recomendamos no mínimo **4GB de RAM**.
 
