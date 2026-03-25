@@ -280,7 +280,6 @@ services:
       N8N_SECURE_COOKIE: "false"
     volumes:
       - n8n_data:/home/node/.n8n
-    restart: unless-stopped
 
 volumes:
   n8n_data:
