@@ -160,6 +160,7 @@ apt install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
 # ── ETAPA 3: Gerar chave de API e criar arquivos ──
 echo -e "${YELLOW}[3/6] Gerando chave de API e criando arquivos de configuração...${NC}"
 API_KEY=$(openssl rand -hex 32)
+DB_PASS=$(openssl rand -hex 16)
 mkdir -p /opt/evolution
 
 cat > /opt/evolution/docker-compose.yml <<EOF
@@ -174,23 +175,18 @@ services:
       SERVER_PORT: 8080
       CLIENT_NAME: "evolution"
       GLOBAL_API_KEY: "${API_KEY}"
-      POSTGRES_AUTH_DB: "postgresql://postgres:postgres@postgres:5432/evogo_auth?sslmode=disable"
-      POSTGRES_USERS_DB: "postgresql://postgres:postgres@postgres:5432/evogo_users?sslmode=disable"
+      POSTGRES_AUTH_DB: "postgresql://postgres:${DB_PASS}@postgres:5432/evogo_auth?sslmode=disable"
+      POSTGRES_USERS_DB: "postgresql://postgres:${DB_PASS}@postgres:5432/evogo_users?sslmode=disable"
       DATABASE_SAVE_MESSAGES: "false"
       WADEBUG: "INFO"
       LOGTYPE: "console"
       CONNECT_ON_STARTUP: "true"
       WEBHOOKFILES: "true"
-      OS_NAME: "Linux"
       WEBHOOK_URL: ""
       AMQP_URL: ""
       AMQP_GLOBAL_ENABLED: "false"
       NATS_URL: ""
-      NATS_GLOBAL_ENABLED: "false"
       MINIO_ENABLED: "false"
-      EVENT_IGNORE_GROUP: "false"
-      EVENT_IGNORE_STATUS: "true"
-      QRCODE_MAX_COUNT: "5"
     volumes:
       - evolution_data:/app/dbdata
       - evolution_logs:/app/logs
@@ -205,7 +201,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: "${DB_PASS}"
       POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -337,8 +333,12 @@ server {
         proxy_pass http://localhost:9000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 90;
     }
 }
 EOF
@@ -398,8 +398,8 @@ echo -e "  🔑 Sua API Key (guarde em local seguro!):"
 echo -e "  ${GREEN}$API_KEY${NC}"
 echo ""
 echo -e "  📋 Para acessar o Manager:"
-echo -e "     URL da API: ${CYAN}https://$DOMAIN_API${NC}"
-echo -e "     API Key:    ${GREEN}$API_KEY${NC}"
+echo -e "     Acesse: ${CYAN}https://$DOMAIN_API/manager/login${NC}"
+echo -e "     API Key: ${GREEN}$API_KEY${NC}"
 echo ""
 echo -e "  ⚠️  Portainer — Acesse com as credenciais abaixo:"
 echo -e "     Usuário: ${GREEN}admin${NC}"
@@ -408,7 +408,7 @@ echo -e "     ⚠️  O usuário admin foi criado automaticamente. Troque a senh
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
 echo ""
 echo -e "  ⚠️  IMPORTANTE: A API requer ativação de licença no primeiro acesso!"
-echo -e "     1. Acesse o Manager: ${CYAN}https://$DOMAIN_MANAGER${NC}"
+echo -e "     1. Acesse o Manager: ${CYAN}https://$DOMAIN_API/manager/login${NC}"
 echo -e "     2. Informe a URL da API e a API Key"
 echo -e "     3. Complete o processo de ativação da licença"
 echo -e "${YELLOW}  -----------------------------------------------------------------------${NC}"
@@ -436,6 +436,9 @@ API Key: $API_KEY
 Para o Manager:
   URL da API: https://$DOMAIN_API
   API Key: $API_KEY
+
+Banco de Dados PostgreSQL:
+  Senha: $DB_PASS
 
 Portainer Login:
   Usuario: admin
