@@ -47,7 +47,7 @@ fi
 # Detectar distribuição
 DISTRO=$(grep -i "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')
 echo -e "${GREEN}✅ Sistema detectado: ${DISTRO}${NC}"
-echo 
+echo ""
 
 echo -e "${BLUE}📋 Antes de começar, vou precisar de algumas informações:${NC}"
 echo ""
@@ -116,28 +116,17 @@ if [ "$INSTALACAO_ANTERIOR" = true ]; then
   fi
   echo ""
   echo -e "${YELLOW}  🧹 Limpando instalação anterior...${NC}"
-
-  # Parar e remover todos os containers e volumes Docker
   docker stop $(docker ps -aq) 2>/dev/null || true
   docker rm $(docker ps -aq) 2>/dev/null || true
   docker volume rm $(docker volume ls -q) 2>/dev/null || true
   docker network prune -f 2>/dev/null || true
-
-  # Remover arquivos de instalação
   rm -rf /opt/evolution /opt/n8n /var/www/evolution-manager
-
-  # Remover TODAS as configurações do Nginx
   rm -f /etc/nginx/sites-enabled/*
   rm -f /etc/nginx/sites-available/*
-
-  # Garantir que sites-enabled está completamente vazio
   rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
-
-  # Remover TODOS os certificados SSL
   for cert in $(certbot certificates 2>/dev/null | grep "Certificate Name" | awk '{print $3}'); do
     certbot delete --cert-name "$cert" --non-interactive 2>/dev/null || true
   done
-
   systemctl reload nginx 2>/dev/null || true
   echo -e "${GREEN}  ✅ Limpeza concluída! Iniciando instalação...${NC}"
   echo ""
@@ -157,13 +146,13 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 apt update -qq
 apt install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# ── ETAPA 3: Gerar chave de API e criar arquivos ──
-echo -e "${YELLOW}[3/6] Gerando chave de API e criando arquivos de configuração...${NC}"
+# ── ETAPA 3: Gerar chaves e criar arquivos ──
+echo -e "${YELLOW}[3/6] Gerando chaves e criando arquivos de configuração...${NC}"
 API_KEY=$(openssl rand -hex 32)
 DB_PASS=$(openssl rand -hex 16)
 mkdir -p /opt/evolution
 
-cat > /opt/evolution/docker-compose.yml <<EOF
+cat > /opt/evolution/docker-compose.yml <<COMPOSE
 services:
   evolution-go:
     image: evoapicloud/evolution-go:latest
@@ -217,17 +206,15 @@ volumes:
 networks:
   evolution_network:
     driver: bridge
-EOF
+COMPOSE
 
-cat > /opt/evolution/init-db.sql <<EOF
+cat > /opt/evolution/init-db.sql <<SQL
 CREATE DATABASE evogo_auth;
 CREATE DATABASE evogo_users;
-EOF
+SQL
 
-# ── ETAPA 4: Subir containers + Portainer ──
-echo -e "${YELLOW}[4/6] Subindo containers...${NC}"
-cd /opt/evolution
-docker compose up -d
+# ── ETAPA 4: Subir Portainer e criar stacks ──
+echo -e "${YELLOW}[4/6] Subindo Portainer e criando stacks...${NC}"
 
 # Instalar Portainer
 docker volume create portainer_data > /dev/null 2>&1
@@ -239,7 +226,7 @@ docker run -d \
   -v portainer_data:/data \
   portainer/portainer-ce:latest > /dev/null 2>&1
 
-# Configurar usuário admin do Portainer automaticamente
+# Configurar usuário admin do Portainer
 echo -e "${YELLOW}      Configurando Portainer...${NC}"
 PORTAINER_PASSWORD=$(openssl rand -base64 12)
 sleep 15
@@ -251,24 +238,34 @@ curl -s -X POST http://localhost:9000/api/users/admin/init \
   -d "{\"Username\":\"admin\",\"Password\":\"${PORTAINER_PASSWORD}\"}" > /dev/null
 echo -e "${GREEN}✅ Portainer configurado automaticamente!${NC}"
 
-# Conectar ambiente local no Portainer automaticamente
+# Obter token e ID do endpoint local
 sleep 3
 PORTAINER_TOKEN=$(curl -s -X POST http://localhost:9000/api/auth \
   -H "Content-Type: application/json" \
   -d "{\"Username\":\"admin\",\"Password\":\"${PORTAINER_PASSWORD}\"}" | grep -o '"jwt":"[^"]*"' | cut -d'"' -f4)
-curl -s -X POST http://localhost:9000/api/endpoints \
+
+ENDPOINT_ID=$(curl -s -X POST http://localhost:9000/api/endpoints \
   -H "Authorization: Bearer ${PORTAINER_TOKEN}" \
   -F "Name=local" \
-  -F "EndpointCreationType=1" > /dev/null
+  -F "EndpointCreationType=1" | grep -o '"Id":[0-9]*' | cut -d':' -f2)
 echo -e "${GREEN}✅ Ambiente local conectado no Portainer!${NC}"
+
+# Criar stack do Evolution Go via API do Portainer
+echo -e "${YELLOW}      Criando stack Evolution Go no Portainer...${NC}"
+COMPOSE_CONTENT=$(cat /opt/evolution/docker-compose.yml | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+curl -s -X POST "http://localhost:9000/api/stacks/create/standalone/string?endpointId=${ENDPOINT_ID}" \
+  -H "Authorization: Bearer ${PORTAINER_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"evolution\",\"stackFileContent\":${COMPOSE_CONTENT},\"env\":[]}" > /dev/null
+echo -e "${GREEN}✅ Stack Evolution Go criada no Portainer!${NC}"
 
 # Instalar n8n (opcional)
 if [ "$INSTALL_N8N" = true ]; then
-  echo -e "${YELLOW}      Instalando n8n...${NC}"
-  mkdir -p /opt/n8n
+  echo -e "${YELLOW}      Instalando n8n via Portainer...${NC}"
   N8N_ENCRYPTION_KEY=$(openssl rand -hex 32)
+  mkdir -p /opt/n8n
 
-  cat > /opt/n8n/docker-compose.yml <<EOF
+  cat > /opt/n8n/docker-compose.yml <<N8NCOMPOSE
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
@@ -289,17 +286,20 @@ services:
 
 volumes:
   n8n_data:
-EOF
+N8NCOMPOSE
 
-  cd /opt/n8n
-  docker compose up -d
-  echo -e "${GREEN}✅ n8n instalado com sucesso!${NC}"
+  N8N_COMPOSE_CONTENT=$(cat /opt/n8n/docker-compose.yml | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+  curl -s -X POST "http://localhost:9000/api/stacks/create/standalone/string?endpointId=${ENDPOINT_ID}" \
+    -H "Authorization: Bearer ${PORTAINER_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"n8n\",\"stackFileContent\":${N8N_COMPOSE_CONTENT},\"env\":[]}" > /dev/null
+  echo -e "${GREEN}✅ Stack n8n criada no Portainer!${NC}"
 fi
 
 # ── ETAPA 5: Configurar Nginx ──
 echo -e "${YELLOW}[5/6] Configurando Nginx...${NC}"
 
-cat > /etc/nginx/sites-available/evolution <<EOF
+cat > /etc/nginx/sites-available/evolution <<NGINX
 server {
     listen 80;
     server_name ${DOMAIN_API};
@@ -341,11 +341,10 @@ server {
         proxy_read_timeout 90;
     }
 }
-EOF
+NGINX
 
-# Adicionar bloco do n8n no Nginx se solicitado
 if [ "$INSTALL_N8N" = true ]; then
-  cat >> /etc/nginx/sites-available/evolution <<EOF
+  cat >> /etc/nginx/sites-available/evolution <<NGINX_N8N
 
 server {
     listen 80;
@@ -359,7 +358,7 @@ server {
         proxy_cache_bypass \$http_upgrade;
     }
 }
-EOF
+NGINX_N8N
 fi
 
 ln -sf /etc/nginx/sites-available/evolution /etc/nginx/sites-enabled/
@@ -415,21 +414,21 @@ echo -e "${YELLOW}  ------------------------------------------------------------
 echo ""
 
 # Salvar credenciais
-cat > /opt/evolution/credenciais.txt <<EOF
+cat > /opt/evolution/credenciais.txt <<CREDS
 === Evolution GO - Credenciais de Acesso ===
 
 API:          https://$DOMAIN_API
 Manager:      https://$DOMAIN_MANAGER
 Portainer:    https://$DOMAIN_PORTAINER
-EOF
+CREDS
 
 if [ "$INSTALL_N8N" = true ]; then
-  cat >> /opt/evolution/credenciais.txt <<EOF
+  cat >> /opt/evolution/credenciais.txt <<CREDS
 n8n:          https://$DOMAIN_N8N
-EOF
+CREDS
 fi
 
-cat >> /opt/evolution/credenciais.txt <<EOF
+cat >> /opt/evolution/credenciais.txt <<CREDS
 
 API Key: $API_KEY
 
@@ -445,12 +444,12 @@ Portainer Login:
   Senha: $PORTAINER_PASSWORD
 
 IMPORTANTE: A API requer ativação de licença no primeiro acesso!
-  1. Acesse o Manager: https://$DOMAIN_MANAGER
+  1. Acesse o Manager: https://$DOMAIN_API/manager/login
   2. Informe a URL da API e a API Key
   3. Complete o processo de ativação da licença
 
 Gerado em: $(date)
-EOF
+CREDS
 
 echo -e "  💾 Credenciais salvas em: ${CYAN}/opt/evolution/credenciais.txt${NC}"
 echo -e "  ☕ Se sentir vontade no coração, envia um cafézin no pix@d2mdigital.com.br"
